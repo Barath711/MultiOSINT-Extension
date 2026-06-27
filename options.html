@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MultiOSINT Settings</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #14161c;
+      color: #e6e9ef;
+      margin: 0;
+      padding: 18px 20px;
+      width: 340px;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sub { font-size: 11px; color: #8b93a7; margin-bottom: 16px; }
+    label { font-size: 12px; font-weight: 600; display: block; margin-bottom: 6px; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid #2b2f3a;
+      background: #1c1f28;
+      color: #e6e9ef;
+      font-size: 13px;
+      outline: none;
+    }
+    input:focus { border-color: #4f8cff; }
+    .row { display: flex; gap: 8px; margin-top: 12px; }
+    button {
+      flex: 1;
+      padding: 9px 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #4f8cff;
+      color: #fff;
+    }
+    button.secondary { background: #2b2f3a; color: #cdd3e0; }
+    button:hover { filter: brightness(1.08); }
+    .hint { font-size: 11px; color: #8b93a7; margin-top: 10px; line-height: 1.5; }
+    .status { font-size: 12px; margin-top: 10px; min-height: 16px; color: #58d68d; }
+    a { color: #6fa8ff; text-decoration: none; }
+    .toggle { margin-top: 6px; font-size: 11px; color: #6fa8ff; cursor: pointer; user-select: none; }
+  </style>
+</head>
+<body>
+  <h1>🛡️ MultiOSINT</h1>
+  <div class="sub">Settings &amp; VirusTotal integration</div>
+
+  <label for="vtKey">VirusTotal API key</label>
+  <input type="password" id="vtKey" placeholder="Paste your VT API key (optional)" autocomplete="off" />
+  <div class="toggle" id="toggleVis">👁 Show key</div>
+
+  <div class="row">
+    <button id="save">Save</button>
+    <button id="clear" class="secondary">Clear</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <div class="hint">
+    <b>Selected text + right-click → MultiOSINT lookup</b><br>
+    Auto-detects IP / domain / hash / email / URL and opens every matching
+    OSINT source as tabs in a new window.<br><br>
+    <b>Right-click a link → Scan link with VirusTotal</b><br>
+    With an API key the link is submitted for a fresh scan and the report opens.
+    Without a key it opens VirusTotal search.<br><br>
+    Get a free key at
+    <a href="https://www.virustotal.com/gui/my-apikey" target="_blank">virustotal.com</a>.
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

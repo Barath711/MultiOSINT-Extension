@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "MultiOSINT Context Lookup",
+  "version": "2.0",
+  "description": "Select text + right-click to auto-identify an IOC (IP/domain/hash/email/URL) and open all OSINT sources tabbed in a new window. Right-click any link to scan it on VirusTotal.",
+  "permissions": ["contextMenus", "tabs", "scripting", "activeTab", "storage", "notifications"],
+  "host_permissions": ["https://www.virustotal.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "options_page": "options.html",
+  "action": {
+    "default_title": "MultiOSINT settings",
+    "default_popup": "options.html",
+    "default_icon": "icon.png"
+  },
+  "commands": {
+    "lookup-ioc": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Z"
+      },
+      "description": "Lookup selected IOC across OSINT sources"
+    }
+  },
+  "icons": {
+    "48": "icon.png"
+  }
+}
