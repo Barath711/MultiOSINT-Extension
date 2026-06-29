@@ -17,12 +17,15 @@ It mirrors the source/detection logic of the **MultiOSINTv12** desktop tool.
   - Opens **all** matching OSINT sources for that type, each in its own tab, grouped in a
     **new window**.
   - Copies the cleaned indicator to the clipboard and shows a desktop notification.
-- **Right-click a link → “Scan link with VirusTotal”**
-  - **With a VT API key:** submits the URL to the VirusTotal API for a fresh scan, then
-    opens the report page.
-  - **Without a key:** opens VirusTotal’s GUI search (no key required).
-- **⌨️ Keyboard shortcut:** `Ctrl+Shift+Z` runs the OSINT lookup on the current selection.
-- **Settings page / popup:** add, show/hide, save, or clear your VirusTotal API key
+- **Right-click a link → “Scan link with VirusTotal + URLScan.io”**
+  - **With API keys:** submits the URL to both the VirusTotal and URLScan.io APIs for fresh
+    scans, then opens both reports.
+  - **Without keys:** opens VirusTotal & URLScan.io search (no key required).
+- **Popup IOC box:** click the toolbar icon, paste one or many indicators (space/comma/newline
+  separated), hit **Lookup** — each is auto-detected; URLs go straight to VT + URLScan.io,
+  everything else opens across all OSINT sources.
+- **⌨️ Keyboard shortcut:** `Ctrl+Shift+Z` runs the lookup on the current selection.
+- **API settings:** add/save/clear **VirusTotal** and **URLScan.io** API keys
   (stored securely via `chrome.storage.sync`).
 
 ---
@@ -51,15 +54,17 @@ It mirrors the source/detection logic of the **MultiOSINTv12** desktop tool.
 
 ---
 
-## 🔑 VirusTotal API Key (optional)
+## 🔑 API Keys (optional)
 
-1. Get a free key at <https://www.virustotal.com/gui/my-apikey>.
-2. Click the extension icon (or open the extension’s **Options**).
-3. Paste your key and click **Save**.
+**VirusTotal** — get a free key at <https://www.virustotal.com/gui/my-apikey>.
+**URLScan.io** — get a key at <https://urlscan.io/user/profile/>.
 
-The key is only used to submit links to VirusTotal and is stored locally in your browser
-profile via `chrome.storage.sync`. Link scanning still works without a key (it falls back to
-VirusTotal search).
+1. Click the extension icon → expand **⚙️ API settings**.
+2. Paste your VT and URLScan.io keys and click **Save keys**.
+
+URLs are submitted directly to both services via their APIs and the reports open. Keys are
+stored locally in your browser profile (`chrome.storage.sync`). Link scanning still works
+without keys (falls back to search).
 
 ---
 
@@ -72,8 +77,13 @@ VirusTotal search).
 
 **Scan a link**
 1. Right-click any hyperlink.
-2. Choose **Scan link with VirusTotal**.
-3. The VirusTotal report (or search) opens in a new tab.
+2. Choose **Scan link with VirusTotal + URLScan.io**.
+3. The VT and URLScan.io reports (or searches) open in new tabs.
+
+**Use the popup box**
+1. Click the toolbar icon.
+2. Paste one or many IOCs (space/comma/newline separated) and click **Lookup** (or `Ctrl+Enter`).
+3. URLs open in VT + URLScan.io; other indicators open across all OSINT sources.
 
 ---
 
@@ -102,7 +112,7 @@ Chrome Extension/
 | `scripting` / `activeTab` | Reads the current text selection |
 | `storage`         | Saves your VirusTotal API key |
 | `notifications`   | Shows lookup status notifications |
-| `host_permissions: virustotal.com` | Submits links to the VirusTotal API |
+| `host_permissions: virustotal.com, urlscan.io` | Submits links to the VirusTotal & URLScan.io APIs |
 
 ---
 

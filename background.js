@@ -15,7 +15,7 @@ function buildMenus() {
     });
     chrome.contextMenus.create({
       id: MENU_VT_LINK,
-      title: "Scan link with VirusTotal",
+      title: "Scan link with VirusTotal + URLScan.io",
       contexts: ["link"]
     });
   });
@@ -27,20 +27,18 @@ chrome.runtime.onStartup.addListener(buildMenus);
 // ──────────────────────────────────────────────────────
 // Helpers
 // ──────────────────────────────────────────────────────
-function getVtKey() {
+function getKeys() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get({ vtApiKey: "" }, (d) => resolve((d.vtApiKey || "").trim()));
+    chrome.storage.sync.get({ vtApiKey: "", urlscanApiKey: "" }, (d) => resolve({
+      vt: (d.vtApiKey || "").trim(),
+      urlscan: (d.urlscanApiKey || "").trim()
+    }));
   });
 }
 
 function notify(title, message) {
   try {
-    chrome.notifications.create({
-      type: "basic",
-      iconUrl: "icon.png",
-      title,
-      message
-    });
+    chrome.notifications.create({ type: "basic", iconUrl: "icon.png", title, message });
   } catch (e) { /* notifications optional */ }
 }
 
@@ -58,7 +56,7 @@ function openTabbedWindow(urls) {
 }
 
 // ──────────────────────────────────────────────────────
-// Selection -> OSINT lookup
+// Selection -> OSINT lookup (non-URL indicators)
 // ──────────────────────────────────────────────────────
 function runOsintLookup(rawText, tabId) {
   const { urls, type, cleaned } = getOsintUrlsFor(rawText || "");
@@ -74,35 +72,76 @@ function runOsintLookup(rawText, tabId) {
 }
 
 // ──────────────────────────────────────────────────────
-// Link -> VirusTotal
+// URL -> VirusTotal + URLScan.io (direct API)
 // ──────────────────────────────────────────────────────
-async function scanLinkOnVirusTotal(linkUrl) {
-  if (!linkUrl) return;
-  const key = await getVtKey();
-
-  if (!key) {
-    // No API key: fall back to VT GUI search (no key required).
+async function scanUrlVirusTotal(linkUrl, vtKey) {
+  if (!vtKey) {
     chrome.tabs.create({ url: "https://www.virustotal.com/gui/search/" + encodeURIComponent(linkUrl) });
     return;
   }
-
-  // With API key: submit the URL for analysis, then open the report page.
   try {
     await fetch("https://www.virustotal.com/api/v3/urls", {
       method: "POST",
-      headers: {
-        "x-apikey": key,
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
+      headers: { "x-apikey": vtKey, "Content-Type": "application/x-www-form-urlencoded" },
       body: "url=" + encodeURIComponent(linkUrl)
     });
   } catch (e) {
-    // Submission failed (network / quota) – still try to open whatever VT has.
-    notify("VirusTotal", "Submit failed, opening existing report instead.");
+    notify("VirusTotal", "Submit failed, opening existing report.");
   }
-
   const urlId = await sha256Hex(linkUrl);
   chrome.tabs.create({ url: "https://www.virustotal.com/gui/url/" + urlId });
+}
+
+async function scanUrlUrlscan(linkUrl, urlscanKey) {
+  if (!urlscanKey) {
+    chrome.tabs.create({ url: "https://urlscan.io/search/#" + encodeURIComponent(linkUrl) });
+    return;
+  }
+  try {
+    const resp = await fetch("https://urlscan.io/api/v1/scan/", {
+      method: "POST",
+      headers: { "API-Key": urlscanKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ url: linkUrl, visibility: "public" })
+    });
+    const data = await resp.json();
+    if (data && data.result) {
+      chrome.tabs.create({ url: data.result });
+    } else {
+      notify("URLScan.io", (data && data.message) ? data.message : "Scan failed, opening search.");
+      chrome.tabs.create({ url: "https://urlscan.io/search/#" + encodeURIComponent(linkUrl) });
+    }
+  } catch (e) {
+    chrome.tabs.create({ url: "https://urlscan.io/search/#" + encodeURIComponent(linkUrl) });
+  }
+}
+
+async function scanLink(linkUrl) {
+  if (!linkUrl) return;
+  const { vt, urlscan } = await getKeys();
+  await scanUrlVirusTotal(linkUrl, vt);
+  await scanUrlUrlscan(linkUrl, urlscan);
+}
+
+// ──────────────────────────────────────────────────────
+// Route any single IOC: URLs -> VT+URLScan, others -> OSINT tabs
+// ──────────────────────────────────────────────────────
+async function processIOC(rawText, tabId) {
+  const cleaned = cleanIOC(rawText);
+  if (!cleaned) return;
+  if (getIOCType(cleaned) === "url") {
+    await scanLink(cleaned);
+  } else {
+    runOsintLookup(rawText, tabId);
+  }
+}
+
+// Process a textarea full of IOCs (newline / comma / space separated).
+async function processBatch(text) {
+  const items = (text || "").split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  for (const it of items) {
+    await processIOC(it, null);
+  }
+  return items.length;
 }
 
 // ──────────────────────────────────────────────────────
@@ -110,9 +149,9 @@ async function scanLinkOnVirusTotal(linkUrl) {
 // ──────────────────────────────────────────────────────
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId === MENU_OSINT) {
-    runOsintLookup(info.selectionText, tab && tab.id);
+    processIOC(info.selectionText, tab && tab.id);
   } else if (info.menuItemId === MENU_VT_LINK) {
-    scanLinkOnVirusTotal(info.linkUrl);
+    scanLink(info.linkUrl);
   }
 });
 
@@ -123,7 +162,14 @@ chrome.commands.onCommand.addListener((command) => {
     if (!tab) return;
     chrome.tabs.sendMessage(tab.id, { action: "getSelectionAndCopy" }, (response) => {
       if (chrome.runtime.lastError || !response || !response.selection) return;
-      runOsintLookup(response.selection, tab.id);
+      processIOC(response.selection, tab.id);
     });
   });
+});
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg && msg.action === "lookupBatch") {
+    processBatch(msg.text).then((n) => sendResponse({ ok: true, count: n }));
+    return true;
+  }
 });

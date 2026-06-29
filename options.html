@@ -3,83 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MultiOSINT Settings</title>
+  <title>MultiOSINT</title>
   <style>
     :root { color-scheme: dark; }
     body {
       font-family: "Segoe UI", system-ui, sans-serif;
-      background: #14161c;
-      color: #e6e9ef;
-      margin: 0;
-      padding: 18px 20px;
-      width: 340px;
+      background: #14161c; color: #e6e9ef; margin: 0;
+      padding: 16px 18px; width: 360px;
     }
-    h1 {
-      font-size: 16px;
-      margin: 0 0 4px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    h1 { font-size: 16px; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+    .sub { font-size: 11px; color: #8b93a7; margin-bottom: 14px; }
+    label { font-size: 12px; font-weight: 600; display: block; margin: 12px 0 6px; }
+    input[type="text"], input[type="password"], textarea {
+      width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 8px;
+      border: 1px solid #2b2f3a; background: #1c1f28; color: #e6e9ef; font-size: 13px; outline: none;
     }
-    .sub { font-size: 11px; color: #8b93a7; margin-bottom: 16px; }
-    label { font-size: 12px; font-weight: 600; display: block; margin-bottom: 6px; }
-    input[type="text"], input[type="password"] {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 9px 10px;
-      border-radius: 8px;
-      border: 1px solid #2b2f3a;
-      background: #1c1f28;
-      color: #e6e9ef;
-      font-size: 13px;
-      outline: none;
-    }
-    input:focus { border-color: #4f8cff; }
-    .row { display: flex; gap: 8px; margin-top: 12px; }
+    textarea { resize: vertical; min-height: 70px; font-family: monospace; }
+    input:focus, textarea:focus { border-color: #4f8cff; }
+    .row { display: flex; gap: 8px; margin-top: 10px; }
     button {
-      flex: 1;
-      padding: 9px 10px;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      background: #4f8cff;
-      color: #fff;
+      flex: 1; padding: 9px 10px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer; background: #4f8cff; color: #fff;
     }
     button.secondary { background: #2b2f3a; color: #cdd3e0; }
     button:hover { filter: brightness(1.08); }
-    .hint { font-size: 11px; color: #8b93a7; margin-top: 10px; line-height: 1.5; }
-    .status { font-size: 12px; margin-top: 10px; min-height: 16px; color: #58d68d; }
+    .hint { font-size: 11px; color: #8b93a7; margin-top: 12px; line-height: 1.5; }
+    .status { font-size: 12px; margin-top: 8px; min-height: 16px; color: #58d68d; }
     a { color: #6fa8ff; text-decoration: none; }
     .toggle { margin-top: 6px; font-size: 11px; color: #6fa8ff; cursor: pointer; user-select: none; }
+    hr { border: none; border-top: 1px solid #242833; margin: 16px 0; }
+    summary { cursor: pointer; font-size: 12px; font-weight: 600; color: #cdd3e0; }
   </style>
 </head>
 <body>
   <h1>🛡️ MultiOSINT</h1>
-  <div class="sub">Settings &amp; VirusTotal integration</div>
+  <div class="sub">Paste indicators &mdash; auto-detect &amp; investigate</div>
 
-  <label for="vtKey">VirusTotal API key</label>
-  <input type="password" id="vtKey" placeholder="Paste your VT API key (optional)" autocomplete="off" />
-  <div class="toggle" id="toggleVis">👁 Show key</div>
-
+  <label for="iocBox">IOCs (IP / domain / hash / email / URL)</label>
+  <textarea id="iocBox" placeholder="Paste one or many, separated by space, comma or newline...&#10;8.8.8.8&#10;evil[.]com&#10;https://bad.site/x"></textarea>
   <div class="row">
-    <button id="save">Save</button>
-    <button id="clear" class="secondary">Clear</button>
+    <button id="lookup">🔎 Lookup</button>
+    <button id="clearBox" class="secondary">Clear</button>
   </div>
   <div class="status" id="status"></div>
 
-  <div class="hint">
-    <b>Selected text + right-click → MultiOSINT lookup</b><br>
-    Auto-detects IP / domain / hash / email / URL and opens every matching
-    OSINT source as tabs in a new window.<br><br>
-    <b>Right-click a link → Scan link with VirusTotal</b><br>
-    With an API key the link is submitted for a fresh scan and the report opens.
-    Without a key it opens VirusTotal search.<br><br>
-    Get a free key at
-    <a href="https://www.virustotal.com/gui/my-apikey" target="_blank">virustotal.com</a>.
-  </div>
+  <hr />
 
+  <details>
+    <summary>⚙️ API settings</summary>
+    <label for="vtKey">VirusTotal API key</label>
+    <input type="password" id="vtKey" placeholder="VT API key (optional)" autocomplete="off" />
+    <label for="usKey">URLScan.io API key</label>
+    <input type="password" id="usKey" placeholder="URLScan.io API key (optional)" autocomplete="off" />
+    <div class="toggle" id="toggleVis">👁 Show keys</div>
+    <div class="row">
+      <button id="save">Save keys</button>
+      <button id="clearKeys" class="secondary">Clear keys</button>
+    </div>
+    <div class="hint">
+      URLs are submitted directly to VirusTotal &amp; URLScan.io via API and the reports open.
+      Other indicators open across all OSINT sources. Keys are stored locally.<br>
+      VT: <a href="https://www.virustotal.com/gui/my-apikey" target="_blank">get key</a> &middot;
+      URLScan: <a href="https://urlscan.io/user/profile/" target="_blank">get key</a>
+    </div>
+  </details>
+
+  <script src="utils.js"></script>
   <script src="options.js"></script>
 </body>
 </html>
