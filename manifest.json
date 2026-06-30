@@ -23,7 +23,10 @@
   "commands": {
     "lookup-ioc": {
       "suggested_key": {
-        "default": "Ctrl+Shift+Z"
+        "default": "Alt+Shift+S",
+        "windows": "Alt+Shift+S",
+        "mac": "Alt+Shift+S",
+        "linux": "Alt+Shift+S"
       },
       "description": "Lookup selected IOC across OSINT sources"
     }

@@ -21,10 +21,24 @@ document.getElementById("toggleVis").addEventListener("click", () => {
   vtInput.type = t; usInput.type = t;
 });
 
+function extractKey(raw) {
+  let s = String(raw || "").trim();
+  if (!s) return "";
+  // Tolerate pasted config-style values like:  "virustotal": "KEY"  or  virustotal: KEY
+  s = s.replace(/^[\s{,]*["']?[A-Za-z0-9_]+["']?\s*[:=]\s*/, "");
+  // Strip surrounding quotes / trailing commas / braces left over
+  s = s.replace(/^["']|["',}\s]+$/g, "").trim();
+  return s;
+}
+
 document.getElementById("save").addEventListener("click", () => {
+  const vt = extractKey(vtInput.value);
+  const us = extractKey(usInput.value);
+  vtInput.value = vt;
+  usInput.value = us;
   chrome.storage.sync.set({
-    vtApiKey: vtInput.value.trim(),
-    urlscanApiKey: usInput.value.trim()
+    vtApiKey: vt,
+    urlscanApiKey: us
   }, () => flash("Saved ✔ API keys stored."));
 });
 

@@ -2,8 +2,9 @@
 
 A Chrome extension (Manifest V3) that turns any selected text or hyperlink into instant
 OSINT intelligence. It auto-detects the indicator type — **IP, domain, hash, email, or URL** —
-and opens every relevant OSINT source as tabs in a single new window. Links can be scanned
-directly on **VirusTotal**.
+and opens every relevant OSINT source as tabs in a single new window. URLs are scanned
+directly via the **VirusTotal** and **URLScan.io** APIs, with both reports opening tabbed
+together in a new window.
 
 It mirrors the source/detection logic of the **MultiOSINTv12** desktop tool.
 
@@ -19,14 +20,16 @@ It mirrors the source/detection logic of the **MultiOSINTv12** desktop tool.
   - Copies the cleaned indicator to the clipboard and shows a desktop notification.
 - **Right-click a link → “Scan link with VirusTotal + URLScan.io”**
   - **With API keys:** submits the URL to both the VirusTotal and URLScan.io APIs for fresh
-    scans, then opens both reports.
+    scans, then opens both reports **tabbed together in one new window**. URLScan opens the
+    `/loading` page that auto-redirects when the scan finishes (no more 404s).
   - **Without keys:** opens VirusTotal & URLScan.io search (no key required).
 - **Popup IOC box:** click the toolbar icon, paste one or many indicators (space/comma/newline
   separated), hit **Lookup** — each is auto-detected; URLs go straight to VT + URLScan.io,
   everything else opens across all OSINT sources.
-- **⌨️ Keyboard shortcut:** `Ctrl+Shift+Z` runs the lookup on the current selection.
+- **⌨️ Keyboard shortcut:** `Alt+Shift+S` runs the lookup on the current selection.
 - **API settings:** add/save/clear **VirusTotal** and **URLScan.io** API keys
-  (stored securely via `chrome.storage.sync`).
+  (stored securely via `chrome.storage.sync`). The key fields tolerate pasted
+  config-style values like `"virustotal": "KEY"` and auto-extract the raw key.
 
 ---
 
@@ -52,6 +55,10 @@ It mirrors the source/detection logic of the **MultiOSINTv12** desktop tool.
 
 > After any code change, return to `chrome://extensions` and click **Reload** on the card.
 
+> **Keyboard shortcut:** the default is `Alt+Shift+S`. If it doesn't fire, open
+> `chrome://extensions/shortcuts` and confirm/assign **MultiOSINT → Alt+Shift+S**
+> (Chrome skips a suggested key if another extension already claims it).
+
 ---
 
 ## 🔑 API Keys (optional)
@@ -72,13 +79,13 @@ without keys (falls back to search).
 
 **Investigate an indicator**
 1. Select any IP, domain, hash, email, or URL on a page.
-2. Right-click → **MultiOSINT lookup**, or press `Ctrl+Shift+Z`.
+2. Right-click → **MultiOSINT lookup**, or press `Alt+Shift+S`.
 3. A new window opens with every relevant OSINT source tabbed.
 
 **Scan a link**
 1. Right-click any hyperlink.
 2. Choose **Scan link with VirusTotal + URLScan.io**.
-3. The VT and URLScan.io reports (or searches) open in new tabs.
+3. Both reports (or searches) open tabbed together in a new window.
 
 **Use the popup box**
 1. Click the toolbar icon.
@@ -91,12 +98,12 @@ without keys (falls back to search).
 
 ```
 Chrome Extension/
-├── manifest.json    # MV3 manifest, permissions, menus, options page
-├── background.js    # Service worker: context menus, OSINT + VirusTotal logic
+├── manifest.json    # MV3 manifest, permissions, menus, command, options page
+├── background.js    # Service worker: menus, IOC routing, VirusTotal + URLScan.io APIs
 ├── content.js       # Clipboard helper + selection retrieval
 ├── utils.js         # OSINT URL map, IOC cleaning & type detection
-├── options.html     # Settings UI (also used as the toolbar popup)
-├── options.js       # Settings logic (save/clear VT API key)
+├── options.html     # Popup UI: IOC box + API key settings
+├── options.js       # Popup logic (batch lookup, save/clear API keys)
 ├── icon.png         # Extension icon
 └── README.md
 ```
@@ -107,10 +114,10 @@ Chrome Extension/
 
 | Permission        | Why it’s needed |
 |-------------------|-----------------|
-| `contextMenus`    | Adds the right-click lookup / VirusTotal menu items |
+| `contextMenus`    | Adds the right-click lookup / link-scan menu items |
 | `tabs`            | Opens OSINT results in tabs/windows |
-| `scripting` / `activeTab` | Reads the current text selection |
-| `storage`         | Saves your VirusTotal API key |
+| `scripting` / `activeTab` | Reads the current text selection (incl. the keyboard shortcut) |
+| `storage`         | Saves your VirusTotal & URLScan.io API keys |
 | `notifications`   | Shows lookup status notifications |
 | `host_permissions: virustotal.com, urlscan.io` | Submits links to the VirusTotal & URLScan.io APIs |
 

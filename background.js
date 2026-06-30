@@ -118,23 +118,16 @@ function runOsintLookup(rawText, tabId) {
 }
  
 // ──────────────────────────────────────────────────────
-// URL -> VirusTotal direct API
+// URL -> VirusTotal direct API. Returns the report URL to open.
 // ──────────────────────────────────────────────────────
 async function scanUrlVirusTotal(linkUrl, vtKey) {
   const url = String(linkUrl || "").trim();
- 
-  if (!url) {
-    notify("VirusTotal", "No URL provided.");
-    return;
-  }
- 
+  if (!url) return null;
+
   if (!vtKey) {
-    chrome.tabs.create({
-      url: "https://www.virustotal.com/gui/search/" + encodeURIComponent(url)
-    });
-    return;
+    return "https://www.virustotal.com/gui/search/" + encodeURIComponent(url);
   }
- 
+
   try {
     const response = await fetch("https://www.virustotal.com/api/v3/urls", {
       method: "POST",
@@ -144,55 +137,30 @@ async function scanUrlVirusTotal(linkUrl, vtKey) {
       },
       body: "url=" + encodeURIComponent(url)
     });
- 
-    const data = await response.json().catch(() => ({}));
- 
-    let reportId = "";
- 
-    if (data && data.data && data.data.id) {
-      reportId = data.data.id;
-    }
- 
-    if (!reportId) {
-      reportId = vtUrlId(url);
-    }
- 
-    chrome.tabs.create({
-      url: "https://www.virustotal.com/gui/url/" + reportId
-    });
- 
-    return {
-      id: reportId,
-      reportUrl: "https://www.virustotal.com/gui/url/" + reportId
-    };
- 
+
+    await response.json().catch(() => ({}));
+
+    // The GUI report page is keyed by the base64url-encoded URL, NOT by the
+    // analysis id (u-<sha256>-<ts>) returned in the POST response.
+    return "https://www.virustotal.com/gui/url/" + vtUrlId(url);
+
   } catch (e) {
     notify("VirusTotal", "Submit failed, opening search page.");
- 
-    chrome.tabs.create({
-      url: "https://www.virustotal.com/gui/search/" + encodeURIComponent(url)
-    });
+    return "https://www.virustotal.com/gui/search/" + encodeURIComponent(url);
   }
 }
- 
+
 // ──────────────────────────────────────────────────────
-// URL -> URLScan.io direct API
+// URL -> URLScan.io direct API. Returns the report URL to open.
 // ──────────────────────────────────────────────────────
 async function scanUrlUrlscan(linkUrl, urlscanKey) {
   const url = String(linkUrl || "").trim();
- 
-  if (!url) {
-    notify("URLScan.io", "No URL provided.");
-    return;
-  }
- 
+  if (!url) return null;
+
   if (!urlscanKey) {
-    chrome.tabs.create({
-      url: "https://urlscan.io/search/#" + encodeURIComponent(url)
-    });
-    return;
+    return "https://urlscan.io/search/#" + encodeURIComponent(url);
   }
- 
+
   try {
     const response = await fetch("https://urlscan.io/api/v1/scan/", {
       method: "POST",
@@ -205,56 +173,52 @@ async function scanUrlUrlscan(linkUrl, urlscanKey) {
         visibility: "public"
       })
     });
- 
+
     const data = await response.json().catch(() => ({}));
- 
+
     if (!response.ok) {
       throw new Error(
         data.message || `URLScan submission failed. HTTP ${response.status}`
       );
     }
- 
+
     const uuid = data.uuid || extractUuid(data.result);
- 
     if (!uuid) {
       throw new Error("Submission succeeded, but no scan UUID was returned.");
     }
- 
-    const reportUrl = data.result || `https://urlscan.io/result/${uuid}/`;
- 
-    chrome.tabs.create({
-      url: reportUrl
-    });
- 
-    return {
-      uuid,
-      reportUrl
-    };
- 
+
+    // The plain /result/<uuid>/ page returns HTTP 404 until the scan finishes.
+    // The /loading page polls and auto-redirects to the result when ready.
+    return `https://urlscan.io/result/${uuid}/loading`;
+
   } catch (e) {
     notify("URLScan.io", e.message || "Submit failed, opening search page.");
- 
-    chrome.tabs.create({
-      url: "https://urlscan.io/search/#" + encodeURIComponent(url)
-    });
+    return "https://urlscan.io/search/#" + encodeURIComponent(url);
   }
 }
- 
+
 // ──────────────────────────────────────────────────────
 // Scan link with both VirusTotal and URLScan.io
+// Opens both reports tabbed together in one new window.
 // ──────────────────────────────────────────────────────
 async function scanLink(linkUrl) {
   const url = String(linkUrl || "").trim();
- 
+
   if (!url) {
     notify("MultiOSINT", "No link found to scan.");
     return;
   }
- 
+
   const { vt, urlscan } = await getKeys();
- 
-  await scanUrlVirusTotal(url, vt);
-  await scanUrlUrlscan(url, urlscan);
+
+  const [vtUrl, usUrl] = await Promise.all([
+    scanUrlVirusTotal(url, vt),
+    scanUrlUrlscan(url, urlscan)
+  ]);
+
+  const urls = [vtUrl, usUrl].filter(Boolean);
+  notify("MultiOSINT", `Opening VirusTotal + URLScan.io for ${url}`);
+  openTabbedWindow(urls);
 }
  
 // ──────────────────────────────────────────────────────
@@ -311,32 +275,32 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
  
 chrome.commands.onCommand.addListener((command) => {
   if (command !== "lookup-ioc") return;
- 
-  chrome.tabs.query(
-    {
-      active: true,
-      currentWindow: true
-    },
-    (tabs) => {
-      const tab = tabs[0];
- 
-      if (!tab || !tab.id) return;
- 
-      chrome.tabs.sendMessage(
-        tab.id,
-        {
-          action: "getSelectionAndCopy"
-        },
-        (response) => {
-          if (chrome.runtime.lastError || !response || !response.selection) {
-            return;
-          }
- 
-          processIOC(response.selection, tab.id);
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (!tab || !tab.id) return;
+
+    // Read the current selection directly via scripting. This does NOT depend
+    // on the content script being injected, so the shortcut works reliably.
+    chrome.scripting.executeScript(
+      {
+        target: { tabId: tab.id },
+        func: () => (window.getSelection ? window.getSelection().toString() : "")
+      },
+      (results) => {
+        if (chrome.runtime.lastError) {
+          notify("MultiOSINT", "Can't read selection on this page. Try the popup box.");
+          return;
         }
-      );
-    }
-  );
+        const selection = (results && results[0] && results[0].result || "").trim();
+        if (!selection) {
+          notify("MultiOSINT", "Select an IOC first, then press the shortcut.");
+          return;
+        }
+        processIOC(selection, tab.id);
+      }
+    );
+  });
 });
  
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
